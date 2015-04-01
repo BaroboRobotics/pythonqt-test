@@ -25,10 +25,16 @@ int main (int argc, char** argv) {
 		return mainModule.evalScript(
 "while 1:\n"
 "\ttry:\n"
-"\t\twhile 1:\n"
-"\t\t\tpass\n"
-"\texcept:\n"
-"\t\tpass", Py_file_input);
+"\t\ttry:\n"
+"\t\t\twhile 1:\n"
+"\t\t\t\tpass\n"
+"\t\texcept:\n"
+"\t\t\tprint('inner')\n"
+"\t\tfinally:\n"
+"\t\t\tprint('finally')\n"
+"\texcept:"
+"\t\tprint('outer')\n"
+, Py_file_input);
 	});
 
 	if (std::future_status::timeout == futureResult.wait_for(std::chrono::seconds(1))) {
