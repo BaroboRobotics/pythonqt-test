@@ -3,8 +3,11 @@
 #include <QCoreApplication>
 #include <QDebug>
 
+#include <chrono>
+#include <future>
 #include <iostream>
 
+// Runs an infinite loop and terminates abnormally.
 int main (int argc, char** argv) {
 	QCoreApplication qapp(argc, argv);
 
@@ -18,10 +21,22 @@ int main (int argc, char** argv) {
 	// get the __main__ python module
 	auto mainModule = PythonQt::self()->getMainModule();
 
-	// evaluate a simple python script and receive the result a qvariant:
-	auto result = mainModule.evalScript("while 1: print(\"Hodor\")", Py_file_input);
+	auto futureResult = std::async(std::launch::async, [&] {
+		return mainModule.evalScript("while 1: pass"/*print(\"Hodor\")"*/, Py_file_input);
+	});
 
-	qDebug() << result;
+	if (std::future_status::timeout == futureResult.wait_for(std::chrono::seconds(1))) {
+		// We want to do this instead of terminate: mainModule.abort();
+		// (or .cancel() or .stop())
+
+		std::terminate();
+
+		// this naive attempt predictably crashes:
+		// qDebug() << mainModule.evalScript("import sys; sys.exit()", Py_file_input);
+
+	}
+
+	qDebug() << futureResult.get();
 
 	return 0;
 }
