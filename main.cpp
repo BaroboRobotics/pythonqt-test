@@ -2,6 +2,8 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
 
 #include <chrono>
 #include <future>
@@ -9,6 +11,11 @@
 
 // Runs an infinite loop and tries to stop the interpreter.
 int main (int argc, char** argv) {
+	if (argc < 2) {
+		std::cerr << "What Python file should I execute, master?\n";
+		return 1;
+	}
+
 	QCoreApplication qapp(argc, argv);
 
 	// init PythonQt and Python
@@ -18,30 +25,29 @@ int main (int argc, char** argv) {
 	QObject::connect(PythonQt::self(), &PythonQt::pythonStdErr, [] (QString x) { std::cerr << x.toStdString(); });
 	QObject::connect(PythonQt::self(), &PythonQt::pythonHelpRequest, [] (QByteArray x) { std::cout << "** Help Request:" << x.toStdString() << '\n'; });
 
-	// get the __main__ python module
-	auto mainModule = PythonQt::self()->getMainModule();
+	QFile file {argv[1]};
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+		std::cerr << "Unable to open file, master.\n";
+		return 1;
+	}
+	QTextStream fileStream {&file};
 
 	auto futureResult = std::async(std::launch::async, [&] {
-		return mainModule.evalScript(
-"while 1:\n"
-"\ttry:\n"
-"\t\ttry:\n"
-"\t\t\twhile 1:\n"
-"\t\t\t\tpass\n"
-"\t\texcept:\n"
-"\t\t\tprint('inner')\n"
-"\t\tfinally:\n"
-"\t\t\tprint('finally')\n"
-"\texcept:"
-"\t\tprint('outer')\n"
-, Py_file_input);
+		// get the __main__ python module
+		auto mainModule = PythonQt::self()->getMainModule();
+		mainModule.evalScript(fileStream.readAll(), Py_file_input);
 	});
 
 	if (std::future_status::timeout == futureResult.wait_for(std::chrono::seconds(1))) {
-		PythonQt::self()->setInterrupt();
+		PythonQt::self()->interrupt();
+		if (std::future_status::timeout == futureResult.wait_for(std::chrono::seconds(1))) {
+			PythonQt::self()->kill();
+		}
 	}
 
-	qDebug() << futureResult.get();
+	futureResult.get();
+
+	std::cout << "Python interrupt test successful!\n";
 
 	return 0;
 }
