@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.2.1)
 project(pythonqt-test C CXX)
 
+# Give subprojects access to LinkbotLabs.cmake
+list(INSERT CMAKE_MODULE_PATH 0 "${PROJECT_SOURCE_DIR}/../cmake-modules")
+
+include(LinkbotLabs)
+ll_add_dependency(baromesh/library baromesh)
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 
@@ -14,7 +20,8 @@ find_package(PythonLibs 3.4 REQUIRED) # 3.4 is hard-coded into our fork of pytho
 add_executable(main main.cpp)
 
 target_link_libraries(main
-	PRIVATE Qt5::Core
+	PRIVATE baromesh
+			Qt5::Core
 			$ENV{PYTHONQT_ROOT}/lib/PythonQt.lib
 			${PYTHON_LIBRARIES}
 			)
